@@ -15,12 +15,42 @@ interface TodoItem {
 }
 
 const MainScreen = ({navigation}) => {
+  // const [todos, setTodos] = useState<TodoItem[]>([]);
   const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [newTodoText, setNewTodoText] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'recent' | 'id'>('recent');
   const [filterType, setFilterType] = useState<'all' | 'active' | 'done'>(
     'all',
   );
+
+  const fetchTodos = async (page: any) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch data from the API for the specified page
+      const response = await axios.get<TodoItem[]>(
+        `https://jsonplaceholder.typicode.com/todos?_page=${page}&_limit=10`,
+      );
+
+      // Update the state with the new data
+      setTodos([...todos, ...response.data]);
+
+      // Update the total number of pages from the API response headers
+      const totalPagesHeader = response.headers['x-total-pages'];
+      setTotalPages(parseInt(totalPagesHeader, 10));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodos(currentPage);
+  }, []);
 
   useEffect(() => {
     axios
@@ -70,6 +100,13 @@ const MainScreen = ({navigation}) => {
     setTodos([...todos, newTodo]);
   };
 
+  const handleEndReached = () => {
+    if (currentPage < totalPages && !isLoading) {
+      const nextPage = currentPage + 1;
+      fetchTodos(nextPage);
+      setCurrentPage(nextPage);
+    }
+  };
 
   const totalTodos = todos.length;
   const completedTodos = todos.filter(todo => todo.completed).length;
@@ -120,6 +157,8 @@ const MainScreen = ({navigation}) => {
             : todos.filter(todo => todo.completed)
         }
         keyExtractor={item => item.id.toString()}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.1}
         renderItem={({item}) => (
           <View>
             <Text>{item.title}</Text>
